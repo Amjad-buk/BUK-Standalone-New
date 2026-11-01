@@ -212,7 +212,7 @@ const newPersona = "const persona=isMyBuki\n      ? `أنت My Buki، مساعد
 if (oldPersona.test(backend)) backend = backend.replace(oldPersona,newPersona);
 else if (!backend.includes('«عشرة وخمسة وخمسون» تعني 10:55')) throw new Error('Cannot safely update My BUKI time instructions.');
 const oldAt = 'const at=new Date(result.at);';
-const newAt = "const at=new Date(result.at);\n          const explicitClock=parseExplicitArabicClock(text);\n          if(explicitClock && Number.isFinite(at.getTime())){\n            const offset=Number.isFinite(Number(body.offset_minutes))?Number(body.offset_minutes):0;\n            const localInstant=new Date(at.getTime()-offset*60000);\n            at.setTime(Date.UTC(localInstant.getUTCFullYear(),localInstant.getUTCMonth(),localInstant.getUTCDate(),explicitClock.hour,explicitClock.minute,0,0)-offset*60000);\n          }";
+const newAt = "const at=new Date(result.at);\n          const explicitClock=parseExplicitArabicClock(text);\n          if(explicitClock && Number.isFinite(at.getTime())){\n            const offset=Number.isFinite(Number(body.offset_minutes))?Number(body.offset_minutes):0;\n            const localInstant=new Date(at.getTime()-offset*60000);\n            at.setTime(Date.UTC(localInstant.getUTCFullYear(),localInstant.getUTCMonth(),localInstant.getUTCDate(),explicitClock.hour,explicitClock.minute,0,0)+offset*60000);\n          }";
 if (backend.includes(oldAt)) backend = backend.replace(oldAt,newAt);
 else if (!backend.includes('const explicitClock=parseExplicitArabicClock(text);')) throw new Error('Cannot safely patch reminder time validation.');
 fs.writeFileSync(assistantFile, backend);
