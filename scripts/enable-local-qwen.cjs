@@ -208,19 +208,11 @@ if (!backend.includes('function parseExplicitArabicClock(')) {
   backend = backend.replace(anchor, helper + '\\n' + anchor);
 }
 const oldPersona = /const persona=isMyBuki\s*\?\s*\`[\s\S]*?\`\s*:\s*'أنت BUK AI، المساعد الذكي داخل تطبيق BUK\. أجب بالعربية الواضحة والمباشرة\.';/;
-const newPersona = \`const persona=isMyBuki
-      ? \\\`أنت My Buki، مساعد شخصي عربي. الوقت المحلي للمستخدم: \${String(body.local_now||'غير محدد')}؛ المنطقة الزمنية: \${String(body.tz_name||'غير محددة')}؛ offset_minutes=\${String(body.offset_minutes??'غير محدد')}. ساعد في الأسئلة والملاحظات والتذكيرات. أعد JSON فقط بالشكل {"reply":"نص الرد","action":"none"} أو عند طلب ضبط تذكير واضح {"reply":"تأكيد مختصر","action":"create_reminder","title":"عنوان قصير","at":"تاريخ ISO 8601 مع المنطقة الزمنية أو offset","repeat":"none|daily|weekly|monthly"}. مهم جدًا: انقل الساعة والدقائق التي قالها المستخدم حرفيًا دون زيادة ساعة أو تقريبها أو تبديلها؛ «عشرة وخمسة وخمسون» تعني 10:55 بالضبط، ولا تجعلها 11:55. لا تحوّل الوقت إلى توقيت UTC عند كتابة at؛ أرفق offset المنطقة الزمنية للمستخدم. لا تنشئ تذكيرًا إلا إذا ذكر المستخدم وقتًا واضحًا. لا تخترع موعدًا؛ عند غموض الوقت اسأل سؤالًا واجعل action=none. يجب أن يكون at في المستقبل.\\\`
-      : 'أنت BUK AI، المساعد الذكي داخل تطبيق BUK. أجب بالعربية الواضحة والمباشرة.';\`;
+const newPersona = "const persona=isMyBuki\n      ? `أنت My Buki، مساعد شخصي عربي. الوقت المحلي للمستخدم: ${String(body.local_now||'غير محدد')}؛ المنطقة الزمنية: ${String(body.tz_name||'غير محددة')}؛ offset_minutes=${String(body.offset_minutes??'غير محدد')}. ساعد في الأسئلة والملاحظات والتذكيرات. أعد JSON فقط بالشكل {\"reply\":\"نص الرد\",\"action\":\"none\"} أو عند طلب ضبط تذكير واضح {\"reply\":\"تأكيد مختصر\",\"action\":\"create_reminder\",\"title\":\"عنوان قصير\",\"at\":\"تاريخ ISO 8601 مع المنطقة الزمنية أو offset\",\"repeat\":\"none|daily|weekly|monthly\"}. مهم جدًا: انقل الساعة والدقائق التي قالها المستخدم حرفيًا دون زيادة ساعة أو تقريبها أو تبديلها؛ «عشرة وخمسة وخمسون» تعني 10:55 بالضبط، ولا تجعلها 11:55. لا تحوّل الوقت إلى توقيت UTC عند كتابة at؛ أرفق offset المنطقة الزمنية للمستخدم. لا تنشئ تذكيرًا إلا إذا ذكر المستخدم وقتًا واضحًا. لا تخترع موعدًا؛ عند غموض الوقت اسأل سؤالًا واجعل action=none. يجب أن يكون at في المستقبل.`\n      : 'أنت BUK AI، المساعد الذكي داخل تطبيق BUK. أجب بالعربية الواضحة والمباشرة.';";
 if (oldPersona.test(backend)) backend = backend.replace(oldPersona,newPersona);
 else if (!backend.includes('«عشرة وخمسة وخمسون» تعني 10:55')) throw new Error('Cannot safely update My BUKI time instructions.');
 const oldAt = 'const at=new Date(result.at);';
-const newAt = \`const at=new Date(result.at);
-          const explicitClock=parseExplicitArabicClock(text);
-          if(explicitClock && Number.isFinite(at.getTime())){
-            const offset=Number.isFinite(Number(body.offset_minutes))?Number(body.offset_minutes):0;
-            const localInstant=new Date(at.getTime()-offset*60000);
-            at.setTime(Date.UTC(localInstant.getUTCFullYear(),localInstant.getUTCMonth(),localInstant.getUTCDate(),explicitClock.hour,explicitClock.minute,0,0)-offset*60000);
-          }\`;
+const newAt = "const at=new Date(result.at);\n          const explicitClock=parseExplicitArabicClock(text);\n          if(explicitClock && Number.isFinite(at.getTime())){\n            const offset=Number.isFinite(Number(body.offset_minutes))?Number(body.offset_minutes):0;\n            const localInstant=new Date(at.getTime()-offset*60000);\n            at.setTime(Date.UTC(localInstant.getUTCFullYear(),localInstant.getUTCMonth(),localInstant.getUTCDate(),explicitClock.hour,explicitClock.minute,0,0)-offset*60000);\n          }";
 if (backend.includes(oldAt)) backend = backend.replace(oldAt,newAt);
 else if (!backend.includes('const explicitClock=parseExplicitArabicClock(text);')) throw new Error('Cannot safely patch reminder time validation.');
 fs.writeFileSync(assistantFile, backend);
