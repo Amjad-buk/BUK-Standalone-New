@@ -201,54 +201,7 @@ console.log('Patched My BUKI first-command dictation retry only.');
 // Deterministic Arabic clock parsing: do not let the language model round or shift explicit hours.
 const assistantFile = '/app/backend/server.cjs';
 let backend = fs.readFileSync(assistantFile, 'utf8');
-const helper = String.raw`
-function parseExplicitArabicClock(input) {
-  const digitMap = {'٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9','۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9'};
-  const text = String(input || '').replace(/[٠-٩۰-۹]/g, c => digitMap[c]).replace(/[ًٌٍَُِّْـ]/g, '').replace(/[،,:]/g, ' ').toLowerCase();
-  const marker = text.search(/الساعة|الساعه|على الساعة|عند الساعة/);
-  if (marker < 0) return null;
-  const tail = text.slice(marker).replace(/^(الساعة|الساعه|على الساعة|عند الساعة)/, '').trim();
-  const words = tail.split(/\s+/).filter(Boolean);
-  const values = {
-    'صفر':0,'واحد':1,'واحدة':1,'وحدة':1,'اثنان':2,'اثنين':2,'ثنتين':2,'ثلاثة':3,'ثلاث':3,
-    'أربعة':4,'اربعة':4,'أربع':4,'اربع':4,'خمسة':5,'خمس':5,'ستة':6,'ست':6,'سبعة':7,'سبع':7,
-    'ثمانية':8,'ثمان':8,'تسعة':9,'تسع':9,'عشرة':10,'عشر':10,'أحدعشر':11,'احدعشر':11,
-    'أحد':11,'عشر':10,'إحدى':11,'احدى':11,'حدعش':11,'حداش':11,'اثنا عشر':12,'اثني عشر':12,
-    'اثنعش':12,'اثناش':12,'ثلاثة عشر':13,'أربعة عشر':14,'خمسة عشر':15,'ستة عشر':16,
-    'سبعة عشر':17,'ثمانية عشر':18,'تسعة عشر':19,'عشرون':20,'عشرين':20,'ثلاثون':30,'ثلاثين':30,
-    'أربعون':40,'اربعون':40,'أربعين':40,'اربعين':40,'خمسون':50,'خمسين':50,'ستون':60,'ستين':60,
-    'سبعون':70,'سبعين':70,'ثمانون':80,'ثمانين':80,'تسعون':90,'تسعين':90
-  };
-  const numberAt = (arr, index) => {
-    if (index >= arr.length) return null;
-    const numeric = Number(arr[index]);
-    if (arr[index] !== '' && Number.isFinite(numeric) && /^\d{1,2}$/.test(arr[index])) return {value:numeric,count:1};
-    const pair = arr.slice(index,index+2).join(' ');
-    if (Object.prototype.hasOwnProperty.call(values,pair)) return {value:values[pair],count:2};
-    if (!Object.prototype.hasOwnProperty.call(values,arr[index])) return null;
-    let value = values[arr[index]], count = 1;
-    if (arr[index+1] === 'و' && Object.prototype.hasOwnProperty.call(values,arr[index+2])) {
-      value += values[arr[index+2]]; count = 3;
-    } else if (arr[index+1] && Object.prototype.hasOwnProperty.call(values,arr[index+1])) {
-      const next = values[arr[index+1]];
-      if ((value < 20 && next >= 20) || (value >= 20 && next < 10)) { value += next; count = 2; }
-    }
-    return {value,count};
-  };
-  const hourPart = numberAt(words,0);
-  if (!hourPart || hourPart.value < 1 || hourPart.value > 24) return null;
-  let rest = words.slice(hourPart.count);
-  if (rest[0] === 'و') rest = rest.slice(1);
-  const minutePart = numberAt(rest,0);
-  if (!minutePart || minutePart.value < 0 || minutePart.value > 59) return null;
-  let hour = hourPart.value;
-  const after = rest.slice(minutePart.count).join(' ');
-  const period = (words.join(' ').match(/مساء|مسائا|ليلا|ليل|pm|صباح|صباحا|صباحاً|am/) || [])[0] || '';
-  if (/مساء|مسائا|ليلا|ليل|pm/.test(period) && hour < 12) hour += 12;
-  if (/صباح|am/.test(period) && hour === 12) hour = 0;
-  return {hour, minute:minutePart.value, period:period || null};
-}
-\`;
+const helper = "\nfunction parseExplicitArabicClock(input) {\n  const digitMap = {'٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9','۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9'};\n  const text = String(input || '').replace(/[٠-٩۰-۹]/g, c => digitMap[c]).replace(/[ًٌٍَُِّْـ]/g, '').replace(/[،,:]/g, ' ').toLowerCase();\n  const markerMatch = text.match(/(?:على|عند)?\\s*(?:الساعة|الساعه)/);\n  if (!markerMatch) return null;\n  const tail = text.slice(markerMatch.index + markerMatch[0].length).trim();\n  const words = tail.split(/\\s+/).filter(Boolean);\n  const values = {\n    'صفر':0,'واحد':1,'واحدة':1,'وحدة':1,'اثنان':2,'اثنين':2,'ثنتين':2,'ثلاثة':3,'ثلاث':3,\n    'أربعة':4,'اربعة':4,'أربع':4,'اربع':4,'خمسة':5,'خمس':5,'ستة':6,'ست':6,'سبعة':7,'سبع':7,\n    'ثمانية':8,'ثمان':8,'تسعة':9,'تسع':9,'عشرة':10,'عشر':10,'أحدعشر':11,'احدعشر':11,\n    'أحد':11,'إحدى':11,'احدى':11,'حدعش':11,'حداش':11,'اثنا عشر':12,'اثني عشر':12,'اثنعش':12,'اثناش':12,\n    'ثلاثة عشر':13,'أربعة عشر':14,'خمسة عشر':15,'ستة عشر':16,'سبعة عشر':17,'ثمانية عشر':18,'تسعة عشر':19,\n    'عشرون':20,'عشرين':20,'ثلاثون':30,'ثلاثين':30,'أربعون':40,'اربعون':40,'أربعين':40,'اربعين':40,\n    'خمسون':50,'خمسين':50,'ستون':60,'ستين':60,'سبعون':70,'سبعين':70,'ثمانون':80,'ثمانين':80,'تسعون':90,'تسعين':90\n  };\n  const numberAt = (arr, index) => {\n    if (index >= arr.length) return null;\n    const token = arr[index];\n    if (/^\\d{1,2}$/.test(token)) return {value:Number(token),count:1};\n    const pair = arr.slice(index,index+2).join(' ');\n    if (Object.prototype.hasOwnProperty.call(values,pair)) return {value:values[pair],count:2};\n    if (!Object.prototype.hasOwnProperty.call(values,token)) return null;\n    let value = values[token], count = 1;\n    if (arr[index+1] === 'و' && Object.prototype.hasOwnProperty.call(values,arr[index+2])) {\n      value += values[arr[index+2]]; count = 3;\n    } else if (arr[index+1] && Object.prototype.hasOwnProperty.call(values,arr[index+1])) {\n      const next = values[arr[index+1]];\n      if ((value < 20 && next >= 20) || (value >= 20 && next < 10)) { value += next; count = 2; }\n    }\n    return {value,count};\n  };\n  const hourPart = numberAt(words,0);\n  if (!hourPart || hourPart.value < 1 || hourPart.value > 24) return null;\n  let rest = words.slice(hourPart.count);\n  if (rest[0] === 'و') rest = rest.slice(1);\n  const minutePart = numberAt(rest,0);\n  if (!minutePart || minutePart.value < 0 || minutePart.value > 59) return null;\n  let hour = hourPart.value;\n  const period = (words.join(' ').match(/مساء|مسائا|ليلا|ليل|pm|صباح|صباحا|صباحاً|am/) || [])[0] || '';\n  if (/مساء|مسائا|ليلا|ليل|pm/.test(period) && hour < 12) hour += 12;\n  if (/صباح|am/.test(period) && hour === 12) hour = 0;\n  return {hour, minute:minutePart.value, period:period || null};\n}\n";
 if (!backend.includes('function parseExplicitArabicClock(')) {
   const anchor = 'async function doAssistant(req,res,body,user){';
   if (!backend.includes(anchor)) throw new Error('Cannot find My BUKI assistant handler.');
