@@ -68,3 +68,131 @@ if (speech.includes(oldSpeak)) {
 } else {
   throw new Error('Could not safely locate My BUKI speech function.');
 }
+
+
+const dictationFile = '/app/src/lib/dictation.js';
+const dictationSource = `/** تحويل الكلام إلى نص داخل المتصفح — مع تهيئة موثوقة وإعادة محاولة تلقائية واحدة. */
+
+const Speech = () => (typeof window === 'undefined' ? null : window.SpeechRecognition || window.webkitSpeechRecognition);
+
+export function dictationSupported() {
+  return Boolean(Speech());
+}
+
+export function startDictation({ lang = 'ar-SA', onPartial, onFinal, onError, onStart } = {}) {
+  const Engine = Speech();
+  if (!Engine) {
+    if (onError) onError('unsupported');
+    return { stop: () => {} };
+  }
+
+  let activeEngine = null;
+  let settled = false;
+  let stopped = false;
+  let attempts = 0;
+  let retryTimer = null;
+  let startTimer = null;
+  let finalText = '';
+
+  const clearTimers = () => {
+    if (retryTimer) clearTimeout(retryTimer);
+    if (startTimer) clearTimeout(startTimer);
+    retryTimer = null;
+    startTimer = null;
+  };
+
+  const finish = (value) => {
+    if (settled || stopped) return;
+    settled = true;
+    clearTimers();
+    if (onFinal) onFinal(String(value || '').trim());
+  };
+
+  const fail = (code) => {
+    if (settled || stopped) return;
+    clearTimers();
+    if (attempts < 2 && ['no-speech', 'network', 'start-failed', 'start-timeout', 'empty-result'].includes(code)) {
+      retryTimer = setTimeout(() => startAttempt(), 450);
+      return;
+    }
+    settled = true;
+    if (onError) onError(code);
+  };
+
+  const startAttempt = () => {
+    if (settled || stopped) return;
+    attempts += 1;
+    finalText = '';
+    let engine;
+    try {
+      engine = new Engine();
+      activeEngine = engine;
+      engine.lang = lang;
+      engine.continuous = false;
+      engine.interimResults = true;
+      engine.maxAlternatives = 1;
+
+      engine.onstart = () => {
+        if (startTimer) clearTimeout(startTimer);
+        startTimer = null;
+        if (onStart) onStart();
+      };
+
+      engine.onresult = (event) => {
+        let interim = '';
+        let completed = '';
+        for (let index = 0; index < event.results.length; index += 1) {
+          const result = event.results[index];
+          const transcript = result && result[0] ? result[0].transcript : '';
+          if (result && result.isFinal) completed += transcript;
+          else interim += transcript;
+        }
+        if (completed.trim()) {
+          finalText = completed.trim();
+          finish(finalText);
+        } else if (interim.trim() && onPartial) {
+          onPartial(interim.trim());
+        }
+      };
+
+      engine.onerror = (event) => {
+        const code = String((event && event.error) || 'unknown');
+        if (code === 'aborted' && stopped) return;
+        fail(code);
+      };
+
+      engine.onend = () => {
+        if (settled || stopped) return;
+        if (finalText) finish(finalText);
+        else fail('empty-result');
+      };
+
+      startTimer = setTimeout(() => {
+        if (!settled && !stopped && activeEngine === engine) {
+          try { engine.abort(); } catch {}
+          fail('start-timeout');
+        }
+      }, 5000);
+
+      engine.start();
+    } catch {
+      fail('start-failed');
+    }
+  };
+
+  startAttempt();
+
+  return {
+    stop: () => {
+      if (stopped) return;
+      stopped = true;
+      clearTimers();
+      try {
+        if (activeEngine) activeEngine.stop();
+      } catch {}
+    }
+  };
+}
+`;
+fs.writeFileSync(dictationFile, dictationSource);
+console.log('Patched My BUKI first-command dictation retry only.');
