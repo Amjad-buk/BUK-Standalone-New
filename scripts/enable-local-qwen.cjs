@@ -18,3 +18,49 @@ const replacement = [
 s=s.slice(0,start)+replacement+s.slice(end);
 fs.writeFileSync(file,s);
 console.log('Restored OpenAI provider for My BUKI, chat and translation.');
+
+
+const speechFile = '/app/src/lib/speech.js';
+let speech = fs.readFileSync(speechFile, 'utf8');
+const oldSpeak = \`export function speakOnDevice(text, lang, gender) {
+  const voice = deviceVoice(lang, gender);
+  if (!voice) return false;
+  try {
+    const utterance = new window.SpeechSynthesisUtterance(String(text));
+    utterance.voice = voice;
+    utterance.lang = voice.lang || 'ar-SA';
+    utterance.rate = 0.95;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+    return true;
+  } catch {
+    return false;
+  }
+}\`;
+const newSpeak = \`export function speakOnDevice(text, lang, gender) {
+  if (typeof window === 'undefined' || !window.speechSynthesis || !window.SpeechSynthesisUtterance) return false;
+  try {
+    const synthesis = window.speechSynthesis;
+    const voice = deviceVoice(lang, gender);
+    const utterance = new window.SpeechSynthesisUtterance(String(text));
+    utterance.lang = voice?.lang || (baseLang(lang) === 'ar' ? 'ar-SA' : String(lang || 'en-US'));
+    if (voice) utterance.voice = voice;
+    utterance.rate = 0.95;
+    utterance.volume = 1;
+    utterance.pitch = 1;
+    synthesis.cancel();
+    synthesis.speak(utterance);
+    return true;
+  } catch {
+    return false;
+  }
+}\`;
+if (speech.includes(oldSpeak)) {
+  speech = speech.replace(oldSpeak, newSpeak);
+  fs.writeFileSync(speechFile, speech);
+  console.log('Patched My BUKI device speech fallback only.');
+} else if (!speech.includes('const utterance = new window.SpeechSynthesisUtterance(String(text));')) {
+  throw new Error('Could not safely locate My BUKI speech function.');
+} else {
+  console.log('My BUKI speech fallback already patched; no change needed.');
+}
