@@ -217,3 +217,35 @@ if (backend.includes(oldAt)) backend = backend.replace(oldAt,newAt);
 else if (!backend.includes('const explicitClock=parseExplicitArabicClock(text);')) throw new Error('Cannot safely patch reminder time validation.');
 fs.writeFileSync(assistantFile, backend);
 console.log('Patched My BUKI explicit Arabic hour/minute parsing and timezone-safe reminder correction.');
+
+// Prevent the Android WebView from remaining on the startup spinner forever
+// when its first API request is stalled by mobile networking or an old session.
+const authContextFile = '/app/src/lib/AuthContext.jsx';
+let authContext = fs.readFileSync(authContextFile, 'utf8');
+const authEffect = `  useEffect(() => {
+    checkAppState();
+  }, []);
+`;
+const guardedEffect = `  useEffect(() => {
+    checkAppState();
+  }, []);
+
+  // Fail open to the login screen if startup API calls never complete.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setIsLoadingPublicSettings(false);
+      setIsLoadingAuth(false);
+      setIsAuthenticated(false);
+      setAuthChecked(true);
+    }, 12000);
+    return () => window.clearTimeout(timer);
+  }, []);
+`;
+if (authContext.includes(authEffect)) {
+  authContext = authContext.replace(authEffect, guardedEffect);
+  fs.writeFileSync(authContextFile, authContext);
+} else if (!authContext.includes('Fail open to the login screen')) {
+  throw new Error('Could not safely add Android startup timeout.');
+}
+console.log('Added 12-second startup fallback to login for stalled mobile API calls.');
+
